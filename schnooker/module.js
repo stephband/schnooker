@@ -255,7 +255,7 @@ export default {
             viewbox
         };
 
-        const objects = [];
+        const objects = env.objects = [];
         // Scale to px
         const scale       = 360;
 

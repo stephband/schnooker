@@ -65,11 +65,10 @@ assign(Ball.prototype, {
 
         // x, y, r
         ctx.save();
-        ctx.beginPath();
-        drawCircle(ctx, this.data);
-        ctx.lineWidth = 1;
+        ctx.lineWidth = 0.6;
         ctx.fillStyle = this.color;
-        ctx.strokeStyle = '#604a00';
+        ctx.strokeStyle = '#000000';
+        drawCircle(ctx, this.data);
         ctx.fill();
         ctx.stroke();
         ctx.restore();
