@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <meta name="author" content="cruncher">
+    <meta name="description" content="">
+
+    <meta name="viewport" content="width=device-width, minimum-scale=1, maximum-scale=1">
+
+    <title>Schnooker</title>
+
+    <script title="load">
+    document.documentElement.className += ' js content-loading loading';
+    window.addEventListener('DOMContentLoaded', () => document.documentElement.classList.remove('content-loading'));
+    window.addEventListener('load', () => document.documentElement.classList.remove('loading'));
+    </script>
+
+    <script title="config">
+
+    window.DEBUG = true;
+
+
+    window.config = {};
+
+
+    </script>
+
+    <!--link rel="icon" type="image/png" sizes="32x32" href="/static/icons/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/static/icons/favicon-16x16.png">
+    <link rel="apple-touch-icon-precomposed" media="screen and (resolution: 163dpi)" href="/static/icons/57-touch-icon-iphone.png" />
+    <link rel="apple-touch-icon-precomposed" media="screen and (resolution: 132dpi)" href="/static/icons/72-touch-icon-iphone.png" />
+    <link rel="apple-touch-icon-precomposed" media="screen and (resolution: 326dpi)" href="/static/icons/114-touch-icon-iphone.png" />
+    <link rel="manifest" href="/static/icons/site.webmanifest">
+    <meta name="msapplication-TileColor" content="#ffffff">
+    <meta name="theme-color" content="#ffffff"-->
+
+    <link rel="stylesheet" href="./module.css">
+
+    <style type="text/css">
+        canvas {
+            background: #1e1e21;
+        }
+    </style>
+
+    <template id="canvas">
+        <canvas>
+            ${ data.createRenderer(element), '' }
+        </canvas>
+    </template>
+</head>
+
+<body class="balloons-body">
+    <include-literal src="#canvas" data="./schnooker/module.js"></include-literal>
+
+    <!-- scripts -->
+    <script type="module" title="Module">
+        import './module.js';
+    </script>
+</body>
+</html>

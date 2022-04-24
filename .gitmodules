@@ -1,0 +1,12 @@
+[submodule "literal"]
+	path = literal
+	url = git@github.com:stephband/literal
+[submodule "fn"]
+	path = fn
+	url = git@github.com:stephband/fn
+[submodule "dom"]
+	path = dom
+	url = git@github.com:stephband/dom
+[submodule "colin"]
+	path = colin
+	url = git@github.com:stephband/colin
