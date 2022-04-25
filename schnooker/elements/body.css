@@ -1,14 +1,4 @@
 
-/**
-.pink-fg,
-.pink-bg
-
-```html
-<p class="pink-fg">Crunchum Ipsum</p>
-<p class="thumb pink-bg">Black</p>
-```
-**/
-
-:root    { --pink: rgb(255, 52, 191); }
-.pink-fg { color: rgb(255, 52, 191); stroke: rgb(255, 52, 191); }
-.pink-bg { background-color: rgb(255, 52, 191); fill: rgb(255, 52, 191); }
+body > .schnooker-canvas {
+    width: 100%;
+}

@@ -16,13 +16,8 @@
     </script>
 
     <script title="config">
-
     window.DEBUG = true;
-
-
     window.config = {};
-
-
     </script>
 
     <!--link rel="icon" type="image/png" sizes="32x32" href="/static/icons/favicon-32x32.png">
@@ -36,15 +31,8 @@
 
     <link rel="stylesheet" href="./module.css">
 
-    <style type="text/css">
-        canvas {
-            width: 100%;
-            background: #1e1e21;
-        }
-    </style>
-
     <template id="canvas">
-        <canvas>
+        <canvas class="schnooker-canvas">
             ${ data.createRenderer(element), '' }
         </canvas>
     </template>
