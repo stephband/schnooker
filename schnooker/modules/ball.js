@@ -65,7 +65,7 @@ assign(Ball.prototype, {
 
         // x, y, r
         ctx.save();
-        ctx.lineWidth = 0.6;
+        ctx.lineWidth = 1.2;
         ctx.fillStyle = this.color;
         ctx.strokeStyle = '#000000';
         drawCircle(ctx, this.data);

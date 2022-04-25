@@ -4,6 +4,7 @@ import noop           from '../fn/modules/noop.js';
 import overload       from '../fn/modules/overload.js';
 import toPolar        from '../fn/modules/to-polar.js';
 import toCartesian    from '../fn/modules/to-cartesian.js';
+import denormalise    from '../fn/modules/denormalise.js';
 import events         from '../dom/modules/events.js';
 import gestures       from '../dom/modules/gestures.js';
 import { vmin }       from '../dom/modules/parse-length.js';
@@ -16,6 +17,7 @@ import { drawLine }   from '../colin/modules/canvas.js';
 
 import Box            from './modules/box.js';
 import Ball, { isBall } from './modules/ball.js';
+import Pocket, { isPocket } from './modules/pocket.js';
 
 const cueForceMutliplier = 3.6;
 const cueForceMax        = 3.6;
@@ -158,7 +160,7 @@ const detect = overload((objectA, objectB) => objectA.type + '-' + objectB.type,
 
     default: function(objectA, objectB) {
         const type = objectA.type + '-' + objectB.type;
-        console.log('No detector for "' + type + '" collision');
+        //console.log('No detector for "' + type + '" collision');
     }
 });
 
@@ -220,11 +222,11 @@ const collide = overload((collision) => collision.objectA.type + '-' + collision
 /* viewbox */
 
 function updateViewbox(canvas, viewbox) {
-    const width  = canvas.width * 2;
-    const height = canvas.height * 2;
+    const width  = canvas.width;
+    const height = canvas.height;
 
-    viewbox[0] = -1 * width;
-    viewbox[1] = -1 * height;
+    viewbox[0] = -0.5 * width;
+    viewbox[1] = -0.5 * height;
     viewbox[2] = width;
     viewbox[3] = height;
 }
@@ -233,8 +235,8 @@ function updateViewbox(canvas, viewbox) {
 /* canvas */
 
 function updateCanvas(canvas) {
-    canvas.width  = window.innerWidth;
-    canvas.height = window.innerHeight;
+    canvas.width  = window.innerWidth  * 2;
+    canvas.height = window.innerHeight * 2;
 }
 
 /* renderer */
@@ -257,44 +259,62 @@ export default {
 
         const objects = env.objects = [];
         // Scale to px
-        const scale       = 360;
+        const scale        = 720;
 
-        const tableLength = 2.54;     // metres
-        const tableWidth  = 0.5 * tableLength;
-        const ballRadius  = 0.028575; // metres
-        const ballMass    = 0.18;     // kg
+        //const tableLength  = 2.54;            // metres for a 9' table (100")
+        const tableLength  = 2.2352;            // metres for a 8' table (88")
+        const tableWidth   = 0.5 * tableLength; // metres
+        const ballRadius   = 0.028575;          // metres
+        const ballMass     = 0.18;              // kg
+        const spacing      = Math.sin(Math.PI / 3) * 2.01 * ballRadius; // x or y distance between balls layed out in a triangle
+        const pocketRadius = 2 * ballRadius;    // metres
 
+        // Angle of pocket wall when pocket is on a 180˚ straight edge
+        // https://www.dimensions.com/element/billiards-pool-table-pockets
+        const pocketWallAngle  = 0.11398243261379608;
+        const pocketWallLength = pocketRadius / Math.cos(pocketWallAngle);
+        const pocketOffset180  = pocketRadius;
+        //const pocketOffset90   = Math.pow(0.5 * Math.pow(pocketWallLength - pocketRadius, 2), 0.5);
+        const pocketOffset90   = 0.39 * pocketRadius;
+
+        // Table
         // env, x, y, w, h
-        objects.push(new Box(env, 0,    0,   tableWidth * scale, tableLength * scale));
+        objects.push(new Box(env, scale * -0.5 * tableWidth, scale * -0.5 * tableLength, tableWidth * scale, tableLength * scale));
 
-        // A cue ball is
+        // Pockets
         // env, x, y, r, vx, vy, vr, mass
+        objects.push(new Pocket(env, scale * (-0.5 * tableWidth - pocketOffset180), scale * 0, pocketRadius * scale, 0, 0, 0));
+        objects.push(new Pocket(env, scale * (0.5  * tableWidth + pocketOffset180), scale * 0, pocketRadius * scale, 0, 0, 0));
+        objects.push(new Pocket(env, scale * (-0.5 * tableWidth - pocketOffset90),  scale * (-0.5 * tableLength - pocketOffset90), pocketRadius * scale, 0, 0, 0));
+        objects.push(new Pocket(env, scale * (0.5  * tableWidth + pocketOffset90),  scale * (-0.5 * tableLength - pocketOffset90), pocketRadius * scale, 0, 0, 0));
+        objects.push(new Pocket(env, scale * (-0.5 * tableWidth - pocketOffset90),  scale * ( 0.5 * tableLength + pocketOffset90), pocketRadius * scale, 0, 0, 0));
+        objects.push(new Pocket(env, scale * (0.5  * tableWidth + pocketOffset90),  scale * ( 0.5 * tableLength + pocketOffset90), pocketRadius * scale, 0, 0, 0));
 
-        // Black ball
-        const spacing = Math.sin(Math.PI / 3) * 2.01 * ballRadius * scale;
+        // Balls
+        // env, x, y, r, vx, vy, vr, mass
+        objects.push(new Ball(env, scale * -4.01 * ballRadius, scale * -0.25 * tableLength - scale * 2 * spacing, scale * ballRadius, 0, 0, 0, ballMass, '#df2b0a'));
+        objects.push(new Ball(env, scale * -2.01 * ballRadius, scale * -0.25 * tableLength - scale * 2 * spacing, scale * ballRadius, 0, 0, 0, ballMass, '#d2b417'));
+        objects.push(new Ball(env, scale * 0,                  scale * -0.25 * tableLength - scale * 2 * spacing, scale * ballRadius, 0, 0, 0, ballMass, '#df2b0a'));
+        objects.push(new Ball(env, scale * 2.01  * ballRadius, scale * -0.25 * tableLength - scale * 2 * spacing, scale * ballRadius, 0, 0, 0, ballMass, '#df2b0a'));
+        objects.push(new Ball(env, scale * 4.01  * ballRadius, scale * -0.25 * tableLength - scale * 2 * spacing, scale * ballRadius, 0, 0, 0, ballMass, '#d2b417'));
 
-        // Row 5
-        objects.push(new Ball(env, (0.5 * tableWidth - 4.01 * ballRadius) * scale, 0.25 * tableLength * scale - 2 * spacing, ballRadius * scale, 0, 0, 0, ballMass, '#df2b0a'));
-        objects.push(new Ball(env, (0.5 * tableWidth - 2.01 * ballRadius) * scale, 0.25 * tableLength * scale - 2 * spacing, ballRadius * scale, 0, 0, 0, ballMass, '#d2b417'));
-        objects.push(new Ball(env, (0.5 * tableWidth * scale),                     0.25 * tableLength * scale - 2 * spacing, ballRadius * scale, 0, 0, 0, ballMass, '#df2b0a'));
-        objects.push(new Ball(env, (0.5 * tableWidth + 2.01 * ballRadius) * scale, 0.25 * tableLength * scale - 2 * spacing, ballRadius * scale, 0, 0, 0, ballMass, '#df2b0a'));
-        objects.push(new Ball(env, (0.5 * tableWidth + 4.01 * ballRadius) * scale, 0.25 * tableLength * scale - 2 * spacing, ballRadius * scale, 0, 0, 0, ballMass, '#d2b417'));
-        // Row 4
-        objects.push(new Ball(env, (0.5 * tableWidth - 3.01 * ballRadius) * scale, 0.25 * tableLength * scale - 1 * spacing, ballRadius * scale, 0, 0, 0, ballMass, '#d2b417'));
-        objects.push(new Ball(env, (0.5 * tableWidth - 1.01 * ballRadius) * scale, 0.25 * tableLength * scale - 1 * spacing, ballRadius * scale, 0, 0, 0, ballMass, '#df2b0a'));
-        objects.push(new Ball(env, (0.5 * tableWidth + 1.01 * ballRadius) * scale, 0.25 * tableLength * scale - 1 * spacing, ballRadius * scale, 0, 0, 0, ballMass, '#d2b417'));
-        objects.push(new Ball(env, (0.5 * tableWidth + 3.01 * ballRadius) * scale, 0.25 * tableLength * scale - 1 * spacing, ballRadius * scale, 0, 0, 0, ballMass, '#df2b0a'));
-        // Row 3
-        objects.push(new Ball(env, (0.5 * tableWidth - 2.01 * ballRadius) * scale, 0.25 * tableLength * scale, ballRadius * scale, 0, 0, 0, ballMass, '#df2b0a'));
-        objects.push(new Ball(env, (0.5 * tableWidth * scale),                     0.25 * tableLength * scale, ballRadius * scale, 0, 0, 0, ballMass, '#111111'));
-        objects.push(new Ball(env, (0.5 * tableWidth + 2.01 * ballRadius) * scale, 0.25 * tableLength * scale, ballRadius * scale, 0, 0, 0, ballMass, '#d2b417'));
-        // Row 2
-        objects.push(new Ball(env, (0.5 * tableWidth - 1.01 * ballRadius) * scale, 0.25 * tableLength * scale + 1 * spacing, ballRadius * scale, 0, 0, 0, ballMass, '#d2b417'));
-        objects.push(new Ball(env, (0.5 * tableWidth + 1.01 * ballRadius) * scale, 0.25 * tableLength * scale + 1 * spacing, ballRadius * scale, 0, 0, 0, ballMass, '#df2b0a'));
-        // Row 1
-        objects.push(new Ball(env, (0.5 * tableWidth * scale),                     0.25 * tableLength * scale + 2 * spacing, ballRadius * scale, 0, 0, 0, ballMass, '#d2b417'));
-        // White ball
-        objects.push(new Ball(env, 0.5 * tableWidth * scale,                       0.75 * tableLength * scale, ballRadius * scale, 0, 0, 0, ballMass, '#eeeeee'));
+        objects.push(new Ball(env, scale * -3.01 * ballRadius, scale * -0.25 * tableLength - scale * 1 * spacing, scale * ballRadius, 0, 0, 0, ballMass, '#d2b417'));
+        objects.push(new Ball(env, scale * -1.01 * ballRadius, scale * -0.25 * tableLength - scale * 1 * spacing, scale * ballRadius, 0, 0, 0, ballMass, '#df2b0a'));
+        objects.push(new Ball(env, scale * 1.01  * ballRadius, scale * -0.25 * tableLength - scale * 1 * spacing, scale * ballRadius, 0, 0, 0, ballMass, '#d2b417'));
+        objects.push(new Ball(env, scale * 3.01  * ballRadius, scale * -0.25 * tableLength - scale * 1 * spacing, scale * ballRadius, 0, 0, 0, ballMass, '#df2b0a'));
+
+        objects.push(new Ball(env, scale * -2.01 * ballRadius, scale * -0.25 * tableLength,                       scale * ballRadius, 0, 0, 0, ballMass, '#df2b0a'));
+        objects.push(new Ball(env, scale * 0,                  scale * -0.25 * tableLength,                       scale * ballRadius, 0, 0, 0, ballMass, '#111111'));
+        objects.push(new Ball(env, scale * 2.01  * ballRadius, scale * -0.25 * tableLength,                       scale * ballRadius, 0, 0, 0, ballMass, '#d2b417'));
+
+        objects.push(new Ball(env, scale * -1.01 * ballRadius, scale * -0.25 * tableLength + scale * 1 * spacing, scale * ballRadius, 0, 0, 0, ballMass, '#d2b417'));
+        objects.push(new Ball(env, scale * 1.01  * ballRadius, scale * -0.25 * tableLength + scale * 1 * spacing, scale * ballRadius, 0, 0, 0, ballMass, '#df2b0a'));
+
+        objects.push(new Ball(env, scale * 0,                  scale * -0.25 * tableLength + scale * 2 * spacing, scale * ballRadius, 0, 0, 0, ballMass, '#d2b417'));
+
+        // Cue ball
+        // env, x, y, r, vx, vy, vr, mass
+        objects.push(new Ball(env, scale * 0,                  scale *  0.25 * tableLength,                       scale * ballRadius, 0, 0, 0, ballMass, '#eeeeee'));
 
         // TEMP s for state
         let s;
@@ -306,21 +326,25 @@ export default {
         const renderer = new DOMRenderer(env, update, detect, collide, objects, (env) => {
             const { ctx, viewbox } = env;
             ctx.clearRect(0, 0, viewbox[2] - viewbox[0], viewbox[3] - viewbox[1]);
+            ctx.save();
+            ctx.translate(-1 * viewbox[0], -1 * viewbox[1]);
         }, (env) => {
             const { ctx, viewbox } = env;
 
             if (s === 'idle' && cueData.points.length) {
                 ctx.save();
-                drawLine(ctx, cueData.points);
-                ctx.lineWidth = 0.5;
+                ctx.lineWidth = 3;
                 ctx.strokeStyle = '#000000';
-                ctx.restore();
+                drawLine(ctx, cueData.points);
                 ctx.stroke();
+                ctx.restore();
             }
 
-            if (s !== 'idle' && objects.filter(isBall).reduce((n, ball) => n + ball.data[3] + ball.data[4], 0) === 0) {
+            if (s !== 'idle' && objects.filter(isBall).reduce((n, ball) => n + Math.abs(ball.data[3]) + Math.abs(ball.data[4]), 0) < 40) {
                 state.push('idle');
             }
+
+            ctx.restore()
         });
 
         renderer.start();
@@ -335,9 +359,13 @@ export default {
         .filter(() => s === 'idle')
         .each((gesture) => gesture.reduce(overload((data, e) => e.type, {
             pointerdown: function(data, e) {
+                // Convert window coords to canvas coords
+                const x = denormalise(viewbox[0], viewbox[0] + viewbox[2], e.clientX / window.innerWidth);
+                const y = denormalise(viewbox[1], viewbox[1] + viewbox[3], e.clientY / window.innerHeight);
+
                 const ball = objects
                     .filter(isBall)
-                    .find((ball) => Math.pow(Math.pow(e.clientX - ball.data[0], 2) + Math.pow(e.clientY - ball.data[1], 2), 0.5) < ball.data[2]);
+                    .find((ball) => Math.pow(Math.pow(x - ball.data[0], 2) + Math.pow(y - ball.data[1], 2), 0.5) < ball.data[2]);
 
                 if (!ball) {
                     gesture.stop();
@@ -345,14 +373,15 @@ export default {
                 }
 
                 data.ball      = ball;
-                data.points[0] = e.clientX;
-                data.points[1] = e.clientY;
+                data.points[0] = x;
+                data.points[1] = y;
                 return data;
             },
 
             pointermove: function(data, e) {
-                data.points[2] = e.clientX;
-                data.points[3] = e.clientY;
+                // Convert window coords to canvas coords
+                data.points[2] = denormalise(viewbox[0], viewbox[0] + viewbox[2], e.clientX / window.innerWidth);
+                data.points[3] = denormalise(viewbox[1], viewbox[1] + viewbox[3], e.clientY / window.innerHeight);
                 return data;
             },
 
