@@ -15,6 +15,7 @@ import { mag, angle } from '../colin/modules/vector.js';
 import DOMRenderer    from '../colin/modules/dom-renderer.js';
 import { drawLine }   from '../colin/modules/canvas.js';
 
+import createTable    from './modules/create-table.js';
 import Box            from './modules/box.js';
 import Ball, { isBall } from './modules/ball.js';
 import Pocket, { isPocket } from './modules/pocket.js';
@@ -27,55 +28,25 @@ const cos     = Math.cos;
 const pi      = Math.PI;
 const turn    = 2 * Math.PI;
 
+function distance(x, y) {
+    return Math.pow(Math.pow(x, 2) + Math.pow(y, 2), 0.5)
+}
+
 const update = overload((a, b) => a.type + '-' + b.type, {
-    'box-ball': function(box, ball, t1, t2) {
-        // Detect balls overlapping box cushions and accelerate accordingly.
-        // This risks injecting initial energy into the system, which it would
-        // be better to avoid.
+    'pocket-ball': function(pocket, ball, t1, t2) {
+        const d = distance(ball.data[0] - pocket.data[0], ball.data[1] - pocket.data[1]);
 
-        const duration = t2 - t1;
-
-        const boxl = box.data[0];
-        const boxr = box.data[0] + box.data[2];
-        const boxt = box.data[1];
-        const boxb = box.data[1] + box.data[3];
-
-        const l = ball.data[0] - ball.data[2];
-        const r = ball.data[0] + ball.data[2];
-        const t = ball.data[1] - ball.data[2];
-        const b = ball.data[1] + ball.data[2];
-
-        const dl = l - boxl;
-        const dr = r - boxr;
-        const dt = t - boxt;
-        const db = b - boxb;
-
-        if (dl < 0) {
-            // Simply reverse direction
-            ball.data[3] = 2;
-            // Make distance cubicly proportional to restoration force?
-            //ball.data[3] += -10000 * dl * dl * dl * duration / ball.mass;
-        }
-
-        if (dr > 0) {
-            // Simply reverse direction
-            ball.data[3] = -2;
-            // Make distance cubicly proportional to restoration force?
-            //ball.data[3] += -10000 * dr * dr * dr * duration / ball.mass;
-        }
-
-        if (dt < 0) {
-            // Simply reverse direction
-            ball.data[4] = 2;
-            // Make distance cubicly proportional to restoration force?
-            //ball.data[4] += -10000 * dt * dt * dt * duration / ball.mass;
-        }
-
-        if (db > 0) {
-            // Simply reverse direction
-            ball.data[4] = -2;
-            // Make distance cubicly proportional to restoration force?
-            //ball.data[4] += -10000 * db * db * db * duration / ball.mass;
+        // Model motion of ball over pocket
+        if (d < pocket.data[2]) {
+            if (d > pocket.data[2] - ball.data[2]) {
+                // Ball is on the edge of the pocket
+                // Crude, can do better
+                ball.data[6] = 10 * (pocket.data[0] - ball.data[0]);
+                ball.data[7] = 10 * (pocket.data[1] - ball.data[1]);
+            }
+            else {
+                // Ball is over the pocket
+            }
         }
     },
 
@@ -85,68 +56,26 @@ const update = overload((a, b) => a.type + '-' + b.type, {
 const collisions = {};
 
 const detect = overload((objectA, objectB) => objectA.type + '-' + objectB.type, {
-    'box-ball': function(objectA, objectB, a1, a2, b1, b2) {
+    'cushion-ball': function(objectA, objectB, a1, a2, b1, b2) {
         let collision, key;
 
-        collisions.top = detectStaticLineMovingCircle(
-            // Box top line
-            a1[0], a1[1], a1[0] + a1[2], a1[1],
+        return detectStaticLineMovingCircle(
+            // Line
+            a1[0], a1[1], a1[2], a1[3],
             // Circle at t1
             b1[0], b1[1], b1[2],
             // Circle at t2
             b2[0], b2[1], b2[2]
         );
+    },
 
-        collisions.bottom = detectStaticLineMovingCircle(
-            // Box bottom line
-            a1[0], a1[1] + a1[3], a1[0] + a1[2], a1[1] + a1[3],
-            // Circle at t1
-            b1[0], b1[1], b1[2],
-            // Circle at t2
-            b2[0], b2[1], b2[2]
+    'corner-ball': function(objectA, objectB, a1, a2, b1, b2) {
+        return detectCircleCircle(
+            // CircleA at t1 ... t2
+            a1[0], a1[1], a1[2], a2[0], a2[1], a2[2],
+            // CircleB at t1 ... t2
+            b1[0], b1[1], b1[2], b2[0], b2[1], b2[2]
         );
-
-        collisions.left = detectStaticLineMovingCircle(
-            // Box left line
-            a1[0], a1[1], a1[0], a1[1] + a1[3],
-            // Circle at t1
-            b1[0], b1[1], b1[2],
-            // Circle at t2
-            b2[0], b2[1], b2[2]
-        );
-
-        collisions.right = detectStaticLineMovingCircle(
-            // Box right line
-            a1[0] + a1[2], a1[1], a1[0] + a1[2], a1[1] + a1[3],
-            // Circle at t1
-            b1[0], b1[1], b1[2],
-            // Circle at t2
-            b2[0], b2[1], b2[2]
-        );
-
-        // Choose the earliest of the four possible collisions
-        for (key in collisions) {
-            if (collisions[key]) {
-                if (collision) {
-                    if (collisions[key][0] < collision[0]) {
-                        collision = collisions[key];
-                    }
-                }
-                else {
-                    collision = collisions[key];
-                }
-            }
-        }
-
-        if (!collision) { return; }
-
-        // Overwrite line xs, ys, xe, ye with box data (box does not move)
-        collision[3] = objectA.data[0];
-        collision[4] = objectA.data[1];
-        collision[5] = objectA.data[2];
-        collision[6] = objectA.data[3];
-
-        return collision;
     },
 
     'ball-ball': function(objectA, objectB, a1, a2, b1, b2) {
@@ -165,9 +94,9 @@ const detect = overload((objectA, objectB) => objectA.type + '-' + objectB.type,
 });
 
 const collide = overload((collision) => collision.objectA.type + '-' + collision.objectB.type, {
-    'box-ball': function(collision) {
+    'cushion-ball': function(collision) {
         const point    = collision.point;
-        const ball  = collision.objectB;
+        const ball     = collision.objectB;
         const polarCol = toPolar([point[0] - ball.data[0], point[1] - ball.data[1]]);
         const polarVel = toPolar([ball.data[3], ball.data[4]]);
 
@@ -179,9 +108,22 @@ const collide = overload((collision) => collision.objectA.type + '-' + collision
 
         ball.data[3] = cartVel[0];
         ball.data[4] = cartVel[1];
+    },
 
-        // Collision pulse
-        //ball.pulses.push(collision.time);
+    'corner-ball': function collideBallBall(collision) {
+        const point    = collision.point;
+        const ball     = collision.objectB;
+        const polarCol = toPolar([point[0] - ball.data[0], point[1] - ball.data[1]]);
+        const polarVel = toPolar([ball.data[3], ball.data[4]]);
+
+        // Plane of reflection
+        polarCol[1] += 0.25 * turn;
+        polarVel[1] = polarCol[1] + (polarCol[1] - polarVel[1]);
+
+        const cartVel  = toCartesian(polarVel);
+
+        ball.data[3] = cartVel[0];
+        ball.data[4] = cartVel[1];
     },
 
     'ball-ball': function collideBallBall(collision) {
@@ -205,10 +147,6 @@ const collide = overload((collision) => collision.objectA.type + '-' + collision
         a.data[4] = (sa * cos(angleA - angleAB) * (ma - mb) + 2 * mb * sb * cos(angleB - angleAB)) / (ma + mb) * sin(angleAB) + sa * sin(angleA - angleAB) * sin(angleAB + pi / 2);
         b.data[3] = (sb * cos(angleB - angleAB) * (mb - ma) + 2 * ma * sa * cos(angleA - angleAB)) / (ma + mb) * cos(angleAB) + sb * sin(angleB - angleAB) * cos(angleAB + pi / 2);
         b.data[4] = (sb * cos(angleB - angleAB) * (mb - ma) + 2 * ma * sa * cos(angleA - angleAB)) / (ma + mb) * sin(angleAB) + sb * sin(angleB - angleAB) * sin(angleAB + pi / 2);
-
-        // Collision pulse
-        //a.pulses.push(collision.time);
-        //b.pulses.push(collision.time);
     },
 
     default: function(collision) {
@@ -262,12 +200,13 @@ export default {
         const scale        = 720;
 
         //const tableLength  = 2.54;            // metres for a 9' table (100")
-        const tableLength  = 2.2352;            // metres for a 8' table (88")
-        const tableWidth   = 0.5 * tableLength; // metres
-        const ballRadius   = 0.028575;          // metres
-        const ballMass     = 0.18;              // kg
-        const spacing      = Math.sin(Math.PI / 3) * 2.01 * ballRadius; // x or y distance between balls layed out in a triangle
-        const pocketRadius = 2 * ballRadius;    // metres
+        const tableLength   = 2.2352;            // metres for a 8' table (88")
+        const tableWidth    = 0.5 * tableLength; // metres
+        const ballRadius    = 0.028575;          // metres
+        const ballMass      = 0.18;              // kg
+        const spacing       = Math.sin(Math.PI / 3) * 2.01 * ballRadius; // x or y distance between balls layed out in a triangle
+        const pocketRadius  = 2 * ballRadius;    // metres
+        const cushionRadius = 0.015;    // metres
 
         // Angle of pocket wall when pocket is on a 180˚ straight edge
         // https://www.dimensions.com/element/billiards-pool-table-pockets
@@ -277,19 +216,30 @@ export default {
         //const pocketOffset90   = Math.pow(0.5 * Math.pow(pocketWallLength - pocketRadius, 2), 0.5);
         const pocketOffset90   = 0.39 * pocketRadius;
 
+
+
         // Table
         // env, x, y, w, h
         objects.push(new Box(env, scale * -0.5 * tableWidth, scale * -0.5 * tableLength, tableWidth * scale, tableLength * scale));
 
+        objects.push.apply(objects, createTable(env, [
+            scale * -0.5 * tableWidth, scale * -0.5 * tableLength,
+            scale *  0.5 * tableWidth, scale * -0.5 * tableLength,
+            scale *  0.5 * tableWidth, scale *  0   * tableLength,
+            scale *  0.5 * tableWidth, scale *  0.5 * tableLength,
+            scale * -0.5 * tableWidth, scale *  0.5 * tableLength,
+            scale * -0.5 * tableWidth, scale *  0   * tableLength
+        ], scale * pocketRadius, scale * cushionRadius));
+
         // Pockets
         // env, x, y, r, vx, vy, vr, mass
-        objects.push(new Pocket(env, scale * (-0.5 * tableWidth - pocketOffset180), scale * 0, pocketRadius * scale, 0, 0, 0));
+        /*objects.push(new Pocket(env, scale * (-0.5 * tableWidth - pocketOffset180), scale * 0, pocketRadius * scale, 0, 0, 0));
         objects.push(new Pocket(env, scale * (0.5  * tableWidth + pocketOffset180), scale * 0, pocketRadius * scale, 0, 0, 0));
         objects.push(new Pocket(env, scale * (-0.5 * tableWidth - pocketOffset90),  scale * (-0.5 * tableLength - pocketOffset90), pocketRadius * scale, 0, 0, 0));
         objects.push(new Pocket(env, scale * (0.5  * tableWidth + pocketOffset90),  scale * (-0.5 * tableLength - pocketOffset90), pocketRadius * scale, 0, 0, 0));
         objects.push(new Pocket(env, scale * (-0.5 * tableWidth - pocketOffset90),  scale * ( 0.5 * tableLength + pocketOffset90), pocketRadius * scale, 0, 0, 0));
         objects.push(new Pocket(env, scale * (0.5  * tableWidth + pocketOffset90),  scale * ( 0.5 * tableLength + pocketOffset90), pocketRadius * scale, 0, 0, 0));
-
+        */
         // Balls
         // env, x, y, r, vx, vy, vr, mass
         objects.push(new Ball(env, scale * -4.01 * ballRadius, scale * -0.25 * tableLength - scale * 2 * spacing, scale * ballRadius, 0, 0, 0, ballMass, '#df2b0a'));

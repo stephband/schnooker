@@ -43,14 +43,9 @@ export default function Ball(env, x, y, r, vx, vy, vr, mass, color) {
 assign(Ball.prototype, {
     update: function(t1, t2) {
         const duration = t2 - t1;
-        //console.log(t2 - t1);
 
-        // Acceleration due to forces
-        const bouyancy = 0;//-0.6 * this.volume / this.mass;
-        this.data[4] += bouyancy * duration;
-
-        const gravity = 0;//3.6;
-        this.data[4] += gravity * duration;
+        this.data[6] = 0;
+        this.data[7] = 0;
 
         // Crude, temporary stopping force. We can model felt better than this.
         const feltDrag = 0.36;

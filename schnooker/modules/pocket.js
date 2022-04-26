@@ -15,12 +15,12 @@ export function isPocket(object) {
     return object.type === 'pocket';
 }
 
-export default function Pocket(env, x, y, r, vx, vy, vr, mass) {
+export default function Pocket(env, x, y, r) {
     this.id    = ++id;
     this.env   = env;
     this.type  = 'pocket';
     this.size  = 3;
-    this.data  = Float64Array.of(x,  y,  r, vx, vy, vr, 0, 0, 0);
+    this.data  = Float64Array.of(x,  y,  r, 0, 0, 0, 0, 0, 0);
 
     this.color = '#000000';
 }
@@ -31,7 +31,7 @@ assign(Pocket.prototype, {
 
         // x, y, r
         ctx.save();
-        ctx.lineWidth = 0.6;
+        ctx.lineWidth = 0;
         ctx.fillStyle = this.color;
         ctx.strokeStyle = '#000000';
         drawCircle(ctx, this.data);
