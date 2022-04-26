@@ -11,12 +11,12 @@ import { vmin }       from '../dom/modules/parse-length.js';
 import rect           from '../dom/modules/rect.js';
 import { select }     from '../dom/modules/select.js';
 import { detectStaticLineMovingCircle, detectCircleCircle } from '../colin/modules/detection.js';
-import { mag, angle } from '../colin/modules/vector.js';
+import { mag, angle, distance } from '../colin/modules/vector.js';
 import DOMRenderer    from '../colin/modules/dom-renderer.js';
-import { drawLine }   from '../colin/modules/canvas.js';
+import { drawLine, drawLines, drawCircle }   from '../colin/modules/canvas.js';
 
 import createTable    from './modules/create-table.js';
-import Box            from './modules/box.js';
+//import Box            from './modules/box.js';
 import Ball, { isBall } from './modules/ball.js';
 import Pocket, { isPocket } from './modules/pocket.js';
 
@@ -27,10 +27,6 @@ const sin     = Math.sin;
 const cos     = Math.cos;
 const pi      = Math.PI;
 const turn    = 2 * Math.PI;
-
-function distance(x, y) {
-    return Math.pow(Math.pow(x, 2) + Math.pow(y, 2), 0.5)
-}
 
 const update = overload((a, b) => a.type + '-' + b.type, {
     'pocket-ball': function(pocket, ball, t1, t2) {
@@ -46,6 +42,8 @@ const update = overload((a, b) => a.type + '-' + b.type, {
             }
             else {
                 // Ball is over the pocket
+                ball.data[3] = ball.data[3] / 4;
+                ball.data[4] = ball.data[4] / 4;
             }
         }
     },
@@ -87,10 +85,7 @@ const detect = overload((objectA, objectB) => objectA.type + '-' + objectB.type,
         );
     },
 
-    default: function(objectA, objectB) {
-        const type = objectA.type + '-' + objectB.type;
-        //console.log('No detector for "' + type + '" collision');
-    }
+    default: noop
 });
 
 const collide = overload((collision) => collision.objectA.type + '-' + collision.objectB.type, {
@@ -206,7 +201,7 @@ export default {
         const ballMass      = 0.18;              // kg
         const spacing       = Math.sin(Math.PI / 3) * 2.01 * ballRadius; // x or y distance between balls layed out in a triangle
         const pocketRadius  = 2 * ballRadius;    // metres
-        const cushionRadius = 0.015;    // metres
+        const cushionRadius = 0.012;    // metres
 
         // Angle of pocket wall when pocket is on a 180˚ straight edge
         // https://www.dimensions.com/element/billiards-pool-table-pockets
@@ -216,20 +211,20 @@ export default {
         //const pocketOffset90   = Math.pow(0.5 * Math.pow(pocketWallLength - pocketRadius, 2), 0.5);
         const pocketOffset90   = 0.39 * pocketRadius;
 
-
-
         // Table
         // env, x, y, w, h
-        objects.push(new Box(env, scale * -0.5 * tableWidth, scale * -0.5 * tableLength, tableWidth * scale, tableLength * scale));
+        //objects.push(new Box(env, scale * -0.5 * tableWidth, scale * -0.5 * tableLength, tableWidth * scale, tableLength * scale));
 
-        objects.push.apply(objects, createTable(env, [
+        const tableShape = [
             scale * -0.5 * tableWidth, scale * -0.5 * tableLength,
             scale *  0.5 * tableWidth, scale * -0.5 * tableLength,
             scale *  0.5 * tableWidth, scale *  0   * tableLength,
             scale *  0.5 * tableWidth, scale *  0.5 * tableLength,
             scale * -0.5 * tableWidth, scale *  0.5 * tableLength,
             scale * -0.5 * tableWidth, scale *  0   * tableLength
-        ], scale * pocketRadius, scale * cushionRadius));
+        ];
+
+        objects.push.apply(objects, createTable(env, tableShape, scale * pocketRadius, scale * cushionRadius));
 
         // Pockets
         // env, x, y, r, vx, vy, vr, mass
@@ -266,6 +261,58 @@ export default {
         // env, x, y, r, vx, vy, vr, mass
         objects.push(new Ball(env, scale * 0,                  scale *  0.25 * tableLength,                       scale * ballRadius, 0, 0, 0, ballMass, '#eeeeee'));
 
+
+        // Table
+        const gradient = env.ctx.createLinearGradient(tableShape[0], tableShape[1], tableShape[6], tableShape[7]);
+
+        // Add three color stops
+        gradient.addColorStop(0,   '#245334');
+        gradient.addColorStop(0.3, '#325838');
+        gradient.addColorStop(1,   '#194236');
+
+        function renderTable(ctx) {
+            ctx.save();
+            ctx.lineWidth = 1;
+            ctx.strokeStyle = '#000000';
+            ctx.fillStyle   = gradient;
+
+            drawLines(ctx, tableShape);
+
+            ctx.stroke();
+            ctx.fill();
+            ctx.restore();
+
+            // Draw ball shadows
+            const balls = objects.filter(isBall);
+            ctx.save();
+            ctx.fillStyle = '#000000';
+            ctx.globalAlpha = 0.0625;
+            ctx.translate(scale * -0.002, scale * -0.005);
+            ctx.scale(1.02, 1.02);
+
+            let n = balls.length, ball;
+            while (ball = balls[--n]) {
+                drawCircle(ctx, ball.data);
+                ctx.fill();
+            }
+
+            ctx.restore();
+
+            ctx.save();
+            ctx.fillStyle = '#000000';
+            ctx.globalAlpha = 0.0625;
+            ctx.translate(scale * -0.018, scale * -0.002);
+            ctx.scale(1.02, 1.02);
+
+            n = balls.length, ball;
+            while (ball = balls[--n]) {
+                drawCircle(ctx, ball.data);
+                ctx.fill();
+            }
+
+            ctx.restore();
+        }
+
         // TEMP s for state
         let s;
         const state = Stream.of('idle').broadcast({ memory: true, hot: true }).each((value) => {
@@ -278,6 +325,8 @@ export default {
             ctx.clearRect(0, 0, viewbox[2] - viewbox[0], viewbox[3] - viewbox[1]);
             ctx.save();
             ctx.translate(-1 * viewbox[0], -1 * viewbox[1]);
+
+            renderTable(ctx);
         }, (env) => {
             const { ctx, viewbox } = env;
 
